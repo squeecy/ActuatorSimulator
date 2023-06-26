@@ -21,6 +21,7 @@ class PIDController {
 	double setpoint;
 	double lastError;
 	double integral;
+	bool variableSetPoint;
 private:
     double lastError_init;
     double integral_init;
@@ -28,26 +29,21 @@ public:
 	double control;
 
 public:
-    PIDController(double Kp_init, double Ki_init, double Kd_init, double setpoint_init);
+    PIDController(double Kp_init, double Ki_init, double Kd_init, double setpoint_init, bool variableSetPoint_init);
 
-    double calculate(double displacement, double pressure, double min, double max);
+    double calculate(double displacement, double var_set_point, double pressure, double min, double max);
     double publishRegulatePressure(); 
 };
 
 class HydraulicEngPump{
 private:
-	double Q;
 	double VALVE_COUNT;
 	double L_PIPE;
 	double D_PIPE;
 	double VALVE_BORE;
 	double displacementStroke;
 	double pumpDisplacement;
-	double fluidViscosity;
 	double fluidViscosityPercent;
-	double deltaP;
-	double f;
-	double flowFactor;
 	double Q_pressureRelief;
 	double effectiveArea;
 	double relievedPressure;
@@ -55,10 +51,17 @@ private:
 	PIDController classRegulate;
 
 public:
+	double Re;
+	double Q;
+	double flowFactor;
+	double deltaP;
+	double f;
+	double fluidViscosity;
 
 	HydraulicEngPump(double VALVE_COUNT_init, double L_PIPE_init, double D_PIPE_init, double VALVE_BORE_init, PIDController& regulate, double PumpNumber_init);
 
 	double hydraulicPressure;
+	double test;
 
 	double cbM2Gal(double cbM);
 
@@ -112,6 +115,7 @@ private:
     double fluidPressure;
     double deltaP_actuator;
     double deltaP_valve;
+	double valvePosition;
 	double Q;
     double bore_side_area;
     double rod_side_area;
@@ -128,9 +132,18 @@ private:
 	double actuator_fluid_velocity;
 	double valve_cross_area;
 	double actuator_valve_radius;
+	double signedFlow;
+	bool activeControl;
 
 public:
-    LinearActuator(double boreArea, double rodArea, double actuatorLength, double valve_radius); 
+    LinearActuator(double boreArea_init, 
+			double rodArea_init, 
+			double actuatorLength_init, 
+			double valve_radius_init, 
+			bool activeControl_init, 
+			double pos_init,
+			PIDController& regulate); 
+	PIDController classRegulate;
 
 	void actuator_entry_fluid_velocity(double Q);
 
@@ -140,9 +153,11 @@ public:
 
 	void update_position();
 
-	void actuator_valve_displacement(double requested_position);
+	void actuator_valve_displacement(double requested_position, double dT);
 
 	double simulatePressureLoss(HydraulicEngPump& hydro);
+
+	double updateValvePosition(double requestPosition);
 
 	double position(double time, double request, bool retract, double Q, double P);
 
@@ -166,6 +181,18 @@ class AuxPump{
 		void lastAuxPosition(int auxPumpSwitch);
 		void simulateAuxPump(int auxPumpSwitch, double time);
 		double publishAuxPressure();
+};
+
+class ReversibleMotorPump{
+	private:
+		double PIS;
+	public:
+		ReversibleMotorPump();
+		double PSI;
+		//void fluidTransfer(double& givePSI, double& receivePSI)
+		void fluidTransfer(HydraulicEngPump *systemGive, HydraulicEngPump *systemReceive, int onSwitch);
+
+
 };
 
 #endif
