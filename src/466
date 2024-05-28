@@ -1,0 +1,589 @@
+#include <hydraulics.h>
+#include <algorithm>
+#include <iostream>
+#include <interp.h>
+
+#define TIME_STEP 0.05
+
+double lerp(double x, double x1, double y1, double x2, double y2)
+{
+	return (y1 + (x - x1) * ((y2 - y1) / (x2 - x1)));
+}
+
+double M_area_to_in_Area(double input)
+{
+	return input * 1550.0;
+}
+
+double GPM2cbmSEC(double x)
+{
+	return x * 1.0;
+}
+
+
+
+
+PIDController::PIDController(double Kp_init, double Ki_init, double Kd_init, double setpoint_init, bool variableSetPoint_init)
+{
+	Kp = Kp_init;
+	Ki = Ki_init;
+	Kd = Kd_init;
+	setpoint = setpoint_init;
+	lastError = 0.0;
+	integral = 0.0;
+	variableSetPoint = variableSetPoint_init;
+}
+
+double PIDController::calculate(double displacement, double var_set_point, double pressure, double min, double max) {
+	double error;
+	if(variableSetPoint)
+	{
+		error = -(std::abs(var_set_point - pressure));
+	}else{
+		error = setpoint - pressure;
+	}
+	double proportional = Kp * error;
+	integral += Ki * error;
+	double integralLimited = std::min(std::max(integral, min), max);
+	double derivative = Kd * (error - lastError);
+	double controlSignal = displacement + proportional + integralLimited + derivative;
+	this->control = std::min(std::max(controlSignal, min), max);
+	lastError = error;
+	return this->control;
+}
+
+double PIDController::publishRegulatePressure() {
+	return setpoint;
+}
+
+HydraulicEngPump::HydraulicEngPump
+	   (double VALVE_COUNT_init, double L_PIPE_init, double D_PIPE_init, double VALVE_BORE_init, PIDController& regulate, double PumpNumber_init):
+		   VALVE_COUNT(VALVE_COUNT_init), L_PIPE(L_PIPE_init), D_PIPE(D_PIPE_init), VALVE_BORE(VALVE_BORE_init),
+			classRegulate(regulate), pumpNumber(PumpNumber_init)
+{
+	Q = 0.0;
+	displacementStroke = 0.0;
+	pumpDisplacement = 0.0;
+	fluidViscosity = 0.0;
+	fluidViscosityPercent = 0.0;
+	deltaP = 0.0;
+	hydraulicPressure = 0.0;
+	f = 0.0;
+	flowFactor = 0.0;
+	Q_pressureRelief = 0.0;
+	effectiveArea = 0.0;
+	relievedPressure = 0.0;
+	N2 = 0.0;
+}
+
+double HydraulicEngPump::cbM2Gal(double cbM)
+{
+	return (cbM * 264.172);
+}
+
+double HydraulicEngPump::GPM2VEL(double x, double D)
+{
+	return (x/D);
+}
+
+double HydraulicEngPump::toPercent(double x, double x1, double x2)
+{
+	return lerp(x, x1, 0.0, x2, 1.0);
+}
+
+void HydraulicEngPump::hydraulicFluidViscosity(double fluidTemp)
+{
+	this->fluidViscosity = lerp(fluidTemp, -40.0, 2600, 100.0, 3.5);
+	this->fluidViscosityPercent = (this->toPercent(this->fluidViscosity, -40.0, 100.0));
+}
+
+void HydraulicEngPump::regulateDisplacement()
+{
+	this->displacementStroke = classRegulate.calculate(this->displacementStroke, 0.0, this->hydraulicPressure, 0.0, 10.0);
+	this->effectiveArea = classRegulate.calculate(this->effectiveArea, 0.0, this->hydraulicPressure, 0.0, 7.5);
+}
+
+double HydraulicEngPump::orificeEquation()
+{
+	return 1.2 * (M_PI * std::pow(this->D_PIPE / 2.0, 2)) * std::sqrt(std::abs(2.0 * (this->hydraulicPressure / 0.69)));
+}
+
+void HydraulicEngPump::simulateEngPump(double driverRPM, double fluidTemp, double hydroPressure, bool RMP)
+{
+	const double IDEAL_RPM = 9000.0;
+	this->hydraulicFluidViscosity(fluidTemp);
+	this->regulateDisplacement();
+
+
+	double rpmAddition = (this->N2) * (1.0 - (this->N2) / 9000.0);
+	double hydroEngPumpRPM = (this->N2) + rpmAddition;
+
+	//std::cout << rpmAddition << std::endl;
+
+	this->pumpDisplacement = (this->VALVE_COUNT) * M_PI * pow(this->VALVE_BORE / 2.0, 2) * this->displacementStroke;
+
+	std::vector<DataPoint> data = {
+		{0.0, 0.85},
+		{500.0, 0.85},
+		{750.0, 0.9},
+		{1000.0, 1.1},
+		{1500.0, 1.1},
+		{2000.0, 1.2},
+		{2100.0, 0.9},
+		{2200.0, 0.8},
+		{2300.0, 0.74},
+		{2500.0, 0.63},
+		{2700.0, 0.63},
+		{2900.0, 0.55},
+		{3025.0, 0.55}
+	};
+
+	// if the driverRPM is not < 0 TODO: change to when RMP is on
+	if(!RMP)
+	{
+		double displace;
+
+		displace = interpolate(data, this->hydraulicPressure);
+		if(this->pumpDisplacement != 0.0)
+		{
+			//double displace = lerp(this->hydraulicPressure, 2000.0, 0.263, 3000.0, 0.0);
+			this->Q = IN3_2_GPM((displace * (hydroEngPumpRPM)) / 0.95);
+		}
+		else
+		{
+			this->Q = ((displace * (hydroEngPumpRPM)) / this->cbM2Gal(1));
+		}
+
+		if(this->Q <= 0.0)
+			this->Q = 0.0;
+	}
+	
+
+	//if(this->Q - this->orificeEquation() > 0.0)
+		//this->Q -= this->orificeEquation();
+}
+
+
+void HydraulicEngPump::findDarcyFriction(double driverRPM, double fluidTemp, bool RMP)
+{
+	this->simulateEngPump(this->N2, fluidTemp, this->hydraulicPressure, RMP);
+	this->Re = (4.0 * this->Q) / (M_PI * this->D_PIPE * this->fluidViscosity);
+	if(this->Re != 0.0)
+		this->f = 0.3164 / (pow(this->Re, 0.25));
+	else
+		this->f = 0.0;
+}
+
+void HydraulicEngPump::systemDeltaP(double driverRPM, double fluidTemp, double rho, bool RMP)
+{
+	double V = this->GPM2VEL(this->Q, this->D_PIPE);
+
+	this->findDarcyFriction(this->N2, fluidTemp, RMP);
+	this->deltaP = this->f * (this-> L_PIPE / this->D_PIPE) * (rho * pow(V, 2.0)) / 2.0;
+}
+
+double HydraulicEngPump::systemPressure(double driverRPM, double fluidTemp, bool RMP)
+{
+	this->N2 = driverRPM;
+	this->systemDeltaP(this->N2, fluidTemp, 0.69, RMP);
+	if(this->f != 0.0)
+	{
+		this->flowFactor = this->Q / (sqrt(std::abs(this->deltaP)));
+		//this->hydraulicPressure += (sqrt(std::abs(this->Q) / this->flowFactor));
+		//double k = lerp(this->hydraulicPressure, 2000.0, 9.27, 3000.0, 6.00);
+		this->hydraulicPressure += ((this->Q * 9.27) / 50.27);
+	}
+	else{
+		this->flowFactor = 0.0;
+		this->hydraulicPressure += 0.0;
+	}
+
+
+	return this->hydraulicPressure;
+}
+
+double HydraulicEngPump::simulatePressureDisipate(double t, double k)
+{
+	this->hydraulicPressure -= this->hydraulicPressure * (std::pow(exp(1.0), -(0.265 * t)));
+	return this->hydraulicPressure;
+}
+
+
+void HydraulicEngPump::fluidLoss(double dP)
+{
+	double pressureLoss = (0.5 * pow((18.94/0.143), 2) * (1.0 / 840.0));
+	this->hydraulicPressure -= dP;
+	//std::cout << pressureLoss << std::endl;
+
+	if(this->hydraulicPressure < 0.0)
+	{
+		this->hydraulicPressure = 0.0;
+	}
+
+}
+
+
+void HydraulicEngPump::updateFlow(double flowRateDelta)
+{
+	if(this->pumpNumber == 3)
+		this->Q = this->Q - flowRateDelta;
+}
+
+double HydraulicEngPump::publishFlow()
+{
+	return GPM2cbmSEC(this->Q);
+}
+
+double HydraulicEngPump::publishPressure()
+{
+	return this->hydraulicPressure;
+}
+
+bool HydraulicEngPump::isRMP(int switch_pos)
+{
+	if(switch_pos == -1)
+	{
+		this->RMP_operation = true;
+	}else if(switch_pos == 1)
+	{
+		if(this->N2 < (9000.0 * 0.45))
+		{
+			this->RMP_operation = true;
+		}
+	}else if(switch_pos == 0){
+		RMP_operation = false;
+	}
+
+	return this->RMP_operation;
+}
+
+LinearActuator::LinearActuator(double boreArea_init, 
+		double rodArea_init, 
+		double actuatorLength_init,
+	   	double valve_radius_init,
+	   	bool activeControl_init,
+		double pos_init,
+		double ideal_flow_init,
+		PIDController& regulate,
+		PIDController& flowRegulate_init):
+		boreArea(boreArea_init), rodArea(rodArea_init), actuatorLength(actuatorLength_init), actuator_valve_radius(valve_radius_init),
+			activeControl(activeControl_init), pos(pos_init), ideal_flow(ideal_flow_init), classRegulate(regulate), flowRegulate(flowRegulate_init)
+	{
+		
+	deltaRequest = 0.0;
+	delta_displacement = 0.0;
+	actuatorEntryFlowRate = 0.0;
+	deltaP_actuator = 0.0;
+	Q = 0.0; 
+	valvePosition = 0.0;
+	bore_side_area = M_PI * pow((boreArea / 2.0), 2);
+	rod_side_area = bore_side_area - this->rodArea;
+	L = 0.0762;
+	D = 0.1016;
+	last_pos = 0.0;
+	volume_extension_ratio = 0.1;
+	total_volume_to_actuator = 0.0;
+	total_volume_to_reservoir = 0.0;
+	entry_valve_opening = 0.0;
+	hydro_press_loss = 0.0;
+	actuator_fluid_velocity = 0.0;
+	valve_cross_area = 0.0;
+	signedFlow = 0.0;
+	actuator_speed = 0.0;
+
+}
+
+
+void LinearActuator::actuator_entry_fluid_velocity(double Q)
+{
+	this->valve_cross_area = (M_PI * pow((this->actuator_valve_radius / 2.0), 2));
+	this->actuatorEntryFlowRate = Q;
+	//std::cout << actuatorEntryFlowRate << std::endl;
+}
+
+double LinearActuator::actuator_entry_pressure(double Q) {
+	this->actuator_entry_fluid_velocity(Q);
+	double f = 0.00015;
+	double rho = 0.69;
+	this->deltaP_actuator =  f * (this->L / this->D) * (rho * pow(this->actuatorEntryFlowRate, 2) / 2.0);
+
+	return this->deltaP_actuator;
+}
+
+double LinearActuator::simulate_actuator_fluid_velocity()
+{
+	//Cv * A * v(dP / rho))
+	this->actuator_fluid_velocity = 100.6 * this->valve_cross_area * std::sqrt(deltaP_actuator / 0.8);
+	//std::cout << deltaP_actuator << std::endl;
+
+}
+
+void LinearActuator::update_position()
+{
+	this->delta_displacement = this->pos - this->last_pos;
+	this->last_pos = this->pos;
+}
+
+void LinearActuator::actuator_valve_displacement(double requested_position, double dT)
+{
+	double vol_to_actuator = 0.0;
+	double vol_to_reservoir = 0.0;
+
+	if(this->delta_displacement > 0.0)
+	{
+		vol_to_actuator = this->delta_displacement * this->bore_side_area;
+		vol_to_reservoir = vol_to_actuator / this->volume_extension_ratio;
+	}else if(this->delta_displacement < 0.0)
+	{
+		vol_to_actuator = -this->delta_displacement * this->rod_side_area;
+		vol_to_reservoir = vol_to_actuator * this->volume_extension_ratio;
+	}
+
+	if(this->activeControl)
+	{
+		this->total_volume_to_actuator += vol_to_actuator;
+		this->total_volume_to_reservoir += vol_to_reservoir;
+	}
+	else{
+		this->total_volume_to_reservoir += vol_to_reservoir - vol_to_actuator;
+	}
+
+	if(this->delta_displacement >= 0.0)
+	{
+		this->signedFlow = vol_to_actuator / dT;
+	}else{
+		this->signedFlow = -vol_to_actuator / dT;
+	}
+}
+
+
+double LinearActuator::simulatePressureLoss(HydraulicEngPump& hydro)
+{
+	//16.94
+	//double deltaP;
+	//deltaP = (this->valvePosition * (std::pow(this->actuatorEntryFlowRate,2) * 0.011)) / 2.0;
+	this->hydro_press_loss = (0.5 * pow((18.94/this->boreArea), 2) * (1.0 / 840.0));
+	hydro.hydraulicPressure -= this->hydro_press_loss;
+	//std::cout << this->hydro_press_loss << std::endl;
+	if(hydro.hydraulicPressure < 0.0)
+	{
+		hydro.hydraulicPressure = 0.0;
+	}
+}
+
+double LinearActuator::flowRateCompencate(double dT)
+{
+	//double desiredFlowRate = 0.69 * 1.0 * std::sqrt(300.0);
+
+	double desiredFlowRate = 100.6 * this->valve_cross_area * std::sqrt(0.00439 / 0.8);
+
+	double test = flowRegulate.calculate(0.0, 13.0, this->actuatorEntryFlowRate, 4.0, 15.0);
+
+	//this->actuatorEntryFlowRate += test;
+	this->actuatorEntryFlowRate += test;
+	//std::cout << this->actuatorEntryFlowRate << std::endl;
+	//std::cout << this->actuatorEntryFlowRate << std::endl;
+
+}
+
+double LinearActuator::updateValvePosition(double requestPosition)
+{
+	if(this->activeControl)
+	{
+		this->valvePosition = classRegulate.calculate(0.0, requestPosition, this->pos, 0.0, 1.0);
+	}
+	return this->valvePosition;
+}
+
+double derivative(double t, double x, double v, double valvePosition, double actuatorFluidVelocity, double load, double P) {
+    // Define the derivative function based on the actuator equation of motion
+    double dx_dt = (actuatorFluidVelocity * valvePosition * (1.0 - 0.9)) / (load / P);
+    return dx_dt;
+}
+
+void rungeKutta(double deltaRequest, double& t, double& x, double& v, double valvePosition, double actuatorFluidVelocity, double load, double P, double dt) {
+    double k1 = derivative(t, x, v, valvePosition, actuatorFluidVelocity, load, P);
+    double k2 = derivative(t + dt/2, x + (dt/2) * v, v + (dt/2) * k1, valvePosition, actuatorFluidVelocity, load, P);
+    double k3 = derivative(t + dt/2, x + (dt/2) * v, v + (dt/2) * k2, valvePosition, actuatorFluidVelocity, load, P);
+    double k4 = derivative(t + dt, x + dt * v, v + dt * k3, valvePosition, actuatorFluidVelocity, load, P);
+    
+    double dx = (dt / 6) * (v + 2*k2 + 2*k3 + k4);
+    double dv = (dt / 6) * (k1 + 2*k2 + 2*k3 + k4);
+    
+	if(deltaRequest < 0.0)
+		x += (dx);
+	else if( deltaRequest > 0.0)
+		x -= (dx);
+
+    v += dv;
+    
+    t += dt;
+}
+
+double LinearActuator::position(double time, double request, bool retract, double Q, double P, double load)
+{
+	actuator_entry_pressure(Q); 
+	simulate_actuator_fluid_velocity();
+	double currentTime = 0.0;
+	double direction = 1.0;
+	double deltaTime = std::min(TIME_STEP, time - currentTime);
+
+	double deltaRequest =  this->pos - request;
+	double v = 0.0;
+
+	double deltaDistance;
+
+	double last_pos = this->pos;
+
+
+
+	flowRateCompencate(deltaTime);
+
+	double test_V = 0.09 * this->valve_cross_area;
+	double bore_side_area_single_actuator = M_PI * std::pow((0.0538 / 2.0), 2);
+	double rod_side_area = bore_side_area_single_actuator - this->rodArea;
+	double bore_side_vol = bore_side_area_single_actuator * 0.38;
+	double rod_side_vol = rod_side_area * 0.38;
+
+	double vol_exten_ratio = bore_side_vol / rod_side_vol;
+	double ratio = this->rodArea / this->boreArea;
+	double Q_rod = ideal_flow * ratio;
+	double min_flow = -0.09 / vol_exten_ratio;
+	double min_test_V = min_flow * this->valve_cross_area;
+
+	double test_v = ideal_flow / this->valve_cross_area;
+	double min_v = Q_rod / this->valve_cross_area;
+
+
+	if(activeControl)
+	{
+		if(std::abs(deltaRequest) < 0.019)
+		{
+			this->pos = this->pos;
+		}else{
+			if(deltaRequest < 0.0)
+			{
+				this->pos +=  (( test_v * this->valvePosition * this->rodArea * deltaTime )) / (LBS_2_N(load)  / (PSI_2_PA(P)  * (this->rodArea)));
+			}
+			else if(deltaRequest > 0.0)
+			{
+				this->pos -= ((min_v * this->valvePosition * this->boreArea * deltaTime))  / (LBS_2_N(load) / (PSI_2_PA(P)  * this->boreArea));
+			}
+		}
+	}
+	else{
+		if(!retract)
+			this->pos -=  ((min_v * this->valvePosition * this->boreArea * deltaTime)) / (LBS_2_N(load) / (PSI_2_PA(P) * this->boreArea));
+		else
+			this->pos += ((test_v * this->valvePosition * this->rodArea * deltaTime)) / (LBS_2_N(load) / (PSI_2_PA(P) * this->boreArea));
+	}
+
+	//limit actuator to physical boundaries
+	if(this->pos > 1.0)
+		this->pos = 1.0;
+	if(this->pos < -1.0)
+		this->pos = -1.0;
+
+
+
+	currentTime += deltaTime;
+
+	deltaDistance =  this->pos - last_pos;
+
+	update_position();
+	actuator_valve_displacement(0, deltaTime);
+	updateValvePosition(request);
+
+	this->valvePosition = lerp(this->valvePosition, 0, 1, 1, 0);
+
+
+	return this->pos;
+}
+
+
+
+double LinearActuator::valve_requested_flow_rate()
+{
+	return this->entry_valve_opening;
+}
+
+double LinearActuator::publish_position()
+{
+	return this->delta_displacement;
+}
+
+double LinearActuator::publish_actuator_vol()
+{
+	return this->total_volume_to_reservoir;
+}
+
+double LinearActuator::publish_actuator_fluid_flow()
+{
+	return this->actuator_fluid_velocity;
+}
+
+double LinearActuator::publish_actuator_speed()
+{
+	return this->actuator_speed;
+}
+
+AuxPump::AuxPump(HydraulicEngPump hydroPump) : auxPumpPSI(0.0), lastPumpPosition(1), pump(hydroPump){}
+
+void AuxPump::lastAuxPosition(int auxPumpSwitch)
+{
+	if(auxPumpSwitch == 2)
+		this->lastPumpPosition = 2;
+	if(auxPumpSwitch == 0)
+		this->lastPumpPosition = 0;
+}
+
+void AuxPump::simulateAuxPump(HydraulicEngPump *pump, int auxPumpSwitch, double time)
+{
+	this->lastAuxPosition(auxPumpSwitch);
+	//switch set to on
+	if(auxPumpSwitch == 1)
+	{
+		//electrical check is not preformed 
+		//driven electrically, so give a constant value that is only operating when ACGS power is on
+		pump->fluidLoss(3.14);
+		this->auxPumpPSI = pump->systemPressure(9000.0, 18.0, false);
+
+	}
+}
+
+double AuxPump::publishAuxPressure()
+{
+	return this->auxPumpPSI;
+}
+
+
+ReversibleMotorPump::ReversibleMotorPump() {}
+
+
+//void fluidTransfer(HydraulicEngPump *givePSI, HydraulicEngPump *receivePSI, int onSwitch)
+void ReversibleMotorPump::fluidTransfer(HydraulicEngPump *systemGive,HydraulicEngPump *systemReceive, bool onSwitch, double first, double second)
+{
+	double dP;
+	double dQ;
+	double valvePosition;
+	if(onSwitch)
+	{
+		valvePosition = lerp(systemReceive->hydraulicPressure, 0.0, 1.0, 3000.0, 0.0);
+		dP = systemGive->hydraulicPressure - systemReceive->hydraulicPressure;
+		//dQ =  (1.89 * std::sqrt(dP / 9.00));
+		dQ =  (first * std::sqrt(dP / second));
+		if(dQ > 0.0)
+		{
+			//systemGive->Q -= dQ;
+			//systemReceive->Q = dQ * 2;
+			systemGive->hydraulicPressure -= 3.0;
+			systemReceive->hydraulicPressure = 5.0;
+		}else{
+			systemGive->Q -= 0.0;
+			systemReceive->Q = 0.0;
+		}
+	}
+}
+
+
+

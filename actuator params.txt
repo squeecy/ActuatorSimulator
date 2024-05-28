@@ -1,0 +1,5 @@
+Landing main gear - 
+
+bore area: 0.0165 m^2
+rod area: 0.0086 m^2
+actuator length: 0.364

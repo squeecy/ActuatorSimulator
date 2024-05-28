@@ -1,0 +1,6 @@
+test/path/main.png
+100
+200
+test/texture2/path_2.png
+400
+600
