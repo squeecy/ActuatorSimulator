@@ -9,9 +9,16 @@ double inner_lerp(double x, double x1, double y1, double x2, double y2)
 }
 
 //draw objects to window in vector form
-void draw_window_guage(sf::RenderWindow& window, const std::vector<sf::Drawable*>& drawables)
+void draw_window_guage(sf::RenderWindow& window, 
+                       const std::vector<sf::Drawable*>& drawables_static, 
+                       const std::vector<sf::Drawable*>& drawables_dynamic)
 {
-	for(const auto& drawable: drawables)
+	for(const auto& drawable: drawables_static)
+	{
+		window.draw(*drawable);
+	}
+
+	for(const auto& drawable: drawables_dynamic)
 	{
 		window.draw(*drawable);
 	}

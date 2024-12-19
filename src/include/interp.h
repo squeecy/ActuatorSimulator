@@ -8,7 +8,7 @@ struct DataPoint {
 };
 
 //linear interpolation
-double lerp(double x, double x1, double y1, double x2, double y2);
+double lerp(double x, double x1, double y1, double x2, double y2, bool is_percent = 0);
 // Custom comparator function to sort the data points by x values
 bool compareDataPoints(const DataPoint& a, const DataPoint& b);
 //non-linear interpolation function

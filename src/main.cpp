@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include "hydraulics.h"
 #include "user.h"
@@ -47,10 +48,7 @@ int main()
 	sf::Clock clock;
 	sf::RectangleShape rect;
 
-
 	auto start = std::chrono::high_resolution_clock::now();
-
-
 
 	Render render;
 	GUI gui;
@@ -64,18 +62,8 @@ int main()
 	simulation_window.setFramerateLimit(60);
 
 
-	sf::Vector2f anchoredEndPosition_system_1_p(1150.f, 120.f);
-	sf::Vector2f anchoredEndPosition_system_2_p(1420.f, 120.f);
-	sf::Vector2f anchoredEndPosition_system_3_p(1705.f, 120.f);
-
-	system_1_needle.setPosition(anchoredEndPosition_system_1_p);
-	system_2_needle.setPosition(anchoredEndPosition_system_2_p);
-	system_3_needle.setPosition(anchoredEndPosition_system_3_p);
-
-
-
-
 	sf::Clock deltaClock;
+
 
 	while (simulation_window.isOpen())
 	{
@@ -111,6 +99,7 @@ int main()
 
 
 		}
+
 		render.handle_texture_swap(&sprite_data, sprite_class_vec, texture_class_vec);
 		update_on_switch_click(&sprite_data);
 		rotate_needles(sprite_class_vec);
@@ -119,32 +108,26 @@ int main()
 		float elapsed = clock.getElapsedTime().asSeconds();
 		sf::Time deltaTime = clock.restart();
 		float elapsedDt = deltaTime.asSeconds();
-		double yoke_x = sf::Joystick::getAxisPosition(1, sf::Joystick::Axis::X);
-		double right_brake = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::X);
-		double left_brake = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::Y);
-		double rudder = sf::Joystick::getAxisPosition(0, sf::Joystick::Axis::Z);
 
 		hydro_pump.update(elapsedDt);
+	  render.update_sprite(update_texture_class_vec, update_sprite_class_vec, updating_texture_library);
+    assign_game_axis_values();
+    connect_actuator_to_system();
 
 		ImGui::SFML::Update(simulation_window, deltaClock.restart());
 		gui.gui_var_values();
 
 		sf::Vector2i mousePosition = sf::Mouse::getPosition(simulation_window);
-		//std::cout << yoke_x << std::endl;
-		//std::cout << mousePosition.x << ", " << mousePosition.y << std::endl;
 
-
-
-
-		if(sf::Joystick::isConnected(1))
-		{
-
-		}
 
 		previous_seconds = seconds;
 		seconds = elapsedTime.count();
 		
-		draw_window_guage(simulation_window, render.draw_textures);
+    //static textures
+		draw_window_guage(simulation_window, render.draw_textures, render.draw_textures_u);
+    //updating textures
+		//draw_window_guage(simulation_window, render.draw_textures_u);
+
 		ImGui::SFML::Render(simulation_window);
 		simulation_window.display();
 		simulation_window.clear();

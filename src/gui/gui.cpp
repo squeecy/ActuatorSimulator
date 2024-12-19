@@ -7,6 +7,8 @@
 void GUI::update_sim_var_values()
 {
     switch_var_values = {
+        fe_aux_hyd_pump_1_switch_master.current_value,
+        fe_aux_hyd_pump_2_switch_master.current_value,
         fe_eng_1_hyd_pump_1_switch_master.current_value,
         fe_eng_1_hyd_pump_2_switch_master.current_value,
         fe_eng_2_hyd_pump_1_switch_master.current_value,

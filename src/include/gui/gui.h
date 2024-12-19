@@ -16,6 +16,8 @@ static void floatToString(double value, char* buffer, size_t buffer_size) {
 }
 
 const std::vector<std::string> switch_vars = {
+    "aux_1_hyd_pump_switch",
+    "aux_2_hyd_pump_switch",
     "eng_1_hyd_pump_1_switch",
     "eng_1_hyd_pump_2_switch",
     "eng_2_hyd_pump_1_switch",

@@ -1,10 +1,18 @@
 #include <iostream>
 #include <algorithm>
 #include "interp.h"
+#include "helper.h"
 
-double lerp(double x, double x1, double y1, double x2, double y2)
+double lerp(double x, double x1, double y1, double x2, double y2, bool is_percent)
 {
-    return (y1 + (x - x1) * ((y2 - y1) / (x2 - x1)));
+    double value = (y1 + (x - x1) * ((y2 - y1) / (x2 - x1)));
+
+    if(is_percent)
+    {
+        value = clamp(value, 1.0, 0.0);
+    }
+
+    return value;
 }
 
 bool compareDataPoints(const DataPoint& a, const DataPoint& b) {

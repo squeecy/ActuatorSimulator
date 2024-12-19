@@ -10,6 +10,6 @@
 #define GPS_2_M3S(x) (x/264.2)
 //#define lerp(x, x1, y1, x2, y2) (y1 + (x - x1) * ((y2 - y1) / (x2 - x1)))
 
-
+double clamp(double value, double upper, double lower);
 
 #endif
