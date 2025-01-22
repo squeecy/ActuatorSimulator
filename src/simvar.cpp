@@ -81,6 +81,12 @@ MsfsAeroFramework::SimVar fe_hydro_pressure_3_master = MsfsAeroFramework::SimVar
 	"Number"
 );
 
+MsfsAeroFramework::SimVar fe_hydro_pressure_aux_1_master = MsfsAeroFramework::SimVar(
+	"FE_HYDROPRES_AUX1",
+	MsfsAeroFramework::SimVarType::LOCAL,
+	"Number"
+);
+
 MsfsAeroFramework::SimVar fe_eng_pump_pressure_1_1_master = MsfsAeroFramework::SimVar(
 	"FE_HydroEngPres1_1",
 	MsfsAeroFramework::SimVarType::LOCAL,
@@ -221,9 +227,33 @@ MsfsAeroFramework::SimVar fe_eng_pump_flow_3_2_master = MsfsAeroFramework::SimVa
 	"Number"
 );
 
+MsfsAeroFramework::SimVar fe_aux_pump_flow_1_master = MsfsAeroFramework::SimVar(
+	"FE_HydroAuxFlow1",
+	MsfsAeroFramework::SimVarType::LOCAL,
+	"Number"
+);
+
+MsfsAeroFramework::SimVar fe_aux_pump_flow_2_master = MsfsAeroFramework::SimVar(
+	"FE_HydroAuxFlow2",
+	MsfsAeroFramework::SimVarType::LOCAL,
+	"Number"
+);
+
 //new
 MsfsAeroFramework::SimVar fe_opposite_pump_operation_master = MsfsAeroFramework::SimVar(
 	"FE_HydroOppositeEngPumpOperation",
+	MsfsAeroFramework::SimVarType::LOCAL,
+	"Bool"
+);
+
+MsfsAeroFramework::SimVar fe_aux_1_operation_master = MsfsAeroFramework::SimVar(
+	"FE_Aux_1_Operation_Master",
+	MsfsAeroFramework::SimVarType::LOCAL,
+	"Bool"
+);
+
+MsfsAeroFramework::SimVar fe_aux_2_operation_master = MsfsAeroFramework::SimVar(
+	"FE_Aux_1_Operation_Master",
 	MsfsAeroFramework::SimVarType::LOCAL,
 	"Bool"
 );

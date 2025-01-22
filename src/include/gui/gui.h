@@ -27,7 +27,7 @@ const std::vector<std::string> switch_vars = {
     "fe_13_hyd_rmp_switch",
     "fe_23_hyd_rmp_switch",
 
-};
+};      
 
 const std::vector<std::string> hydro_vars = {
     "system_1_pressure",
@@ -47,6 +47,8 @@ const std::vector<std::string> hydro_vars = {
     "fe_hydro_line_2_2_pressure",
     "fe_hydro_line_3_1_pressure",
     "fe_hydro_line_3_2_pressure",
+    "fe_hydro_line_aux_1_pressure",
+    "fe_hydro_line_aux_2_pressure",
 
     "fe_hydro_1_flow",
     "fe_hydro_2_flow",

@@ -37,6 +37,8 @@ void GUI::update_sim_var_values()
         fe_line_hydro_pressure_2_2_master.current_value,
         fe_line_hydro_pressure_3_1_master.current_value,
         fe_line_hydro_pressure_3_2_master.current_value,
+        fe_line_hydro_pressure_aux_1_master.current_value,
+        fe_line_hydro_pressure_aux_2_master.current_value,
 
         fe_hydro_flow_1_master.current_value,
         fe_hydro_flow_2_master.current_value,

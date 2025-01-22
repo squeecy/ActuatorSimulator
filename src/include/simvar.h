@@ -20,6 +20,7 @@ extern MsfsAeroFramework::SimVar fe_23_hydro_switch_master;
 extern MsfsAeroFramework::SimVar fe_hydro_pressure_1_master;
 extern MsfsAeroFramework::SimVar fe_hydro_pressure_2_master;
 extern MsfsAeroFramework::SimVar fe_hydro_pressure_3_master;
+extern MsfsAeroFramework::SimVar fe_hydro_pressure_aux_1_master;
 
 // hydro pump pressure vars
 extern MsfsAeroFramework::SimVar fe_eng_pump_pressure_1_1_master;
@@ -51,8 +52,12 @@ extern MsfsAeroFramework::SimVar fe_eng_pump_flow_2_1_master;
 extern MsfsAeroFramework::SimVar fe_eng_pump_flow_2_2_master;
 extern MsfsAeroFramework::SimVar fe_eng_pump_flow_3_1_master;
 extern MsfsAeroFramework::SimVar fe_eng_pump_flow_3_2_master;
+extern MsfsAeroFramework::SimVar fe_aux_pump_flow_1_master;
+extern MsfsAeroFramework::SimVar fe_aux_pump_flow_2_master;
 //new
 extern MsfsAeroFramework::SimVar fe_opposite_pump_operation_master;
+extern MsfsAeroFramework::SimVar fe_aux_1_operation_master;
+extern MsfsAeroFramework::SimVar fe_aux_2_operation_master;
 
 //engine vars
 extern MsfsAeroFramework::SimVar normal_n2_1_master;

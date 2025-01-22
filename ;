@@ -204,6 +204,8 @@ namespace MsfsAeroFramework {
       SimVar* fe_aux_motor_1_rpm = &fe_aux_motor_1_rpm_master;
       SimVar* fe_aux_motor_2_rpm = &fe_aux_motor_2_rpm_master;
 
+		  //SimVar* fe_aux_1_rpm = &normal_n2_1_master;
+      //SimVar* fe_aux_2_rpm = &normal_n2_3_master;
       SimVar* fe_hydro_pressure_1 = &fe_hydro_pressure_1_master;
       SimVar* fe_line_hydro_pressure_1_1 = &fe_line_hydro_pressure_1_1_master;
       SimVar* fe_line_hydro_pressure_1_2 = &fe_line_hydro_pressure_1_2_master;
@@ -266,6 +268,14 @@ namespace MsfsAeroFramework {
 		SimVar** fe_eng_secondary_pump_flow_member = nullptr;
 		SimVar** fe_system_hydro_flow_member = nullptr;
 		SimVar** fe_aux_operating_member = nullptr;
+
+		//SimVar* fe_rmp_1_3_pump_operation_member = nullptr;
+		//SimVar* fe_rmp_2_3_pump_operation_member = nullptr;
+
+		//HydraulicEngPump(double VALVE_COUNT_init, double L_PIPE_init, double D_PIPE_init, double VALVE_BORE_init, double PumpNumber_init);
+
+
+
 
 
 		double GPM2VEL(double x, double D);
@@ -607,9 +617,13 @@ namespace MsfsAeroFramework {
                                                                                   engine_pump_3_2,
                                                                                   aux_pump_1,
                                                                                   aux_pump_2);
-
+			//DC10ActuatorSystem(const ActuatorParams& params)
+				//: bore_area(params.bore_area_init), rod_area(params.rod_area_init),
+				//actuator_valve_radius(params.actuator_value_radius_init), actuator_position(params.actuator_position_init),
+				//active_control(params.active_control_init), ideal_flow(params.ideal_flow_init) {}
       DC10ActuatorSystem test_actuator = DC10ActuatorSystem(actuator_param_test, engine_pump_1_1, engine_pump_1_2);
 
+			//DC10HydraulicEnginePumpSystem engine_pump_1_1 = DC10HydraulicEnginePumpSystem(params_1_1);
       DC10HydraulicAuxPumpSystem auxiliary_pump_1= DC10HydraulicAuxPumpSystem(&aux_pump_1);
       DC10HydraulicAuxPumpSystem auxiliary_pump_2= DC10HydraulicAuxPumpSystem(&aux_pump_2);
 
